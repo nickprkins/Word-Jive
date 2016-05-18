@@ -9,12 +9,17 @@
 import UIKit
 import CoreData
 
+protocol CapabilitiesDelegate: class {
+    func availableCapabilities(data: [[String: String]])
+}
+
 enum TableSections {
+    case Title
     case Options
     case Capabilities
 }
 
-class GameSetupViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class GameSetupViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, CapabilitiesDelegate {
     
     var context: NSManagedObjectContext?
     var entity: NSEntityDescription?
@@ -22,24 +27,27 @@ class GameSetupViewController: UIViewController, UITableViewDataSource, UITableV
     @IBOutlet weak var playButton: UIButton!
     @IBOutlet weak var tableView: UITableView!
     
-    let settingsArray = [
-        ["title": "Title", "placeholder": "Title", "key": "title"],
-        ["title": "Width", "placeholder": "20", "key": "width"],
-        ["title": "Height", "placeholder": "20", "key": "height"],
-        ["title": "Words", "placeholder": "10", "key": "words"],
-        ["title": "Min Word Length", "placeholder": "4", "key": "minWordLength"],
-        ["title": "Max Word Length", "placeholder": "10", "key": "maxWordLength"]]
+    let textFieldsArray = [["title": "Title", "placeholder": "Title", "key": "title"]]
+    let slidersArray = [
+        ["title": "Width", "placeholder": 20, "key": "width"],
+        ["title": "Height", "placeholder": 20, "key": "height"],
+        ["title": "Words", "placeholder": 10, "key": "words"],
+        ["title": "Min Word Length", "placeholder": 4, "key": "minWordLength"],
+        ["title": "Max Word Length", "placeholder": 10, "key": "maxWordLength"]]
     
-    let capabilityArray = ["Horizontal", "Vertical", "Angle", "Whatever"]
+    let capabiliesArray = ["Horizontal", "Vertical", "Angle", "Whatever"]
+    var capabilitiesArray = [[String: String]]()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        
+        BackEndRequests.getCapabilities()
+        BackEndRequests.delegate = self
         
         playButton.layer.cornerRadius = 7.0
-        playButton.layer.borderColor = UIColor(red: (13/255.0), green: (95/255.0), blue: (255/255.0), alpha: 1.0).CGColor
+        playButton.layer.borderColor = UIColor(red: (192/255.0), green: (193/255.0), blue: (192/255.0), alpha: 1.0).CGColor
         playButton.titleLabel?.font = UIFont (name: "Pacifico", size: 24)
+        playButton.enabled = false
         
         tableView.tableFooterView = UIView(frame: CGRectZero)
 
@@ -63,13 +71,24 @@ class GameSetupViewController: UIViewController, UITableViewDataSource, UITableV
         
         // If appropriate, configure the new managed object.
         // Normally you should use accessor methods, but using KVC here avoids the need to add a custom class to the template.
-        for index in 0...settingsArray.count {
-            let indexPath = NSIndexPath(forRow: index, inSection: 0)
+        for index in 0...textFieldsArray.count-1 {
+            let indexPath = NSIndexPath(forRow: index, inSection: TableSections.Title.hashValue)
             if let cell = tableView.cellForRowAtIndexPath(indexPath) as? SettingsTableViewCell {
                 if cell.settingTextField.text != "" {
-                    newManagedObject.setValue(cell.settingTextField.text, forKey: settingsArray[index]["title"]!)
+                    newManagedObject.setValue(cell.settingTextField.text, forKey: textFieldsArray[index]["key"]!)
                 } else {
-                    newManagedObject.setValue(settingsArray[index]["placeholder"], forKey: settingsArray[index]["key"]!)
+                    newManagedObject.setValue(textFieldsArray[index]["placeholder"], forKey: textFieldsArray[index]["key"]!)
+                }
+            }
+        }
+        
+        for index in 0...slidersArray.count-1 {
+            let indexPath = NSIndexPath(forRow: index, inSection: TableSections.Options.hashValue)
+            if let cell = tableView.cellForRowAtIndexPath(indexPath) as? SliderTableViewCell {
+                if cell.valueSlider.value != 0.0 {
+                    newManagedObject.setValue(Int(cell.valueSlider.value), forKey: slidersArray[index]["key"]! as! String)
+                } else {
+                    newManagedObject.setValue(slidersArray[index]["placeholder"], forKey: slidersArray[index]["key"]! as! String)
                 }
             }
         }
@@ -83,6 +102,7 @@ class GameSetupViewController: UIViewController, UITableViewDataSource, UITableV
             //print("Unresolved error \(error), \(error.userInfo)")
             abort()
         }
+        
         dismissViewControllerAnimated(true, completion: nil)
     }
     
@@ -90,22 +110,34 @@ class GameSetupViewController: UIViewController, UITableViewDataSource, UITableV
     // MARK: Table view stuff
     
     func numberOfSectionsInTableView(tableView: UITableView) -> Int {
-        return 2
+        return 3
     }
     
     func tableView(tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        if section == TableSections.Capabilities.hashValue {
-            return "CHOOSE AT LEAST ONE OPTION BELOW"
+        switch section {
+        case TableSections.Title.hashValue:
+            return "Title"
+        case TableSections.Options.hashValue:
+            return "Game Options"
+        case TableSections.Capabilities.hashValue:
+            return "Choose at least one option below"
+        default:
+            return nil
         }
-        return nil
+    }
+    
+    func tableView(tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        return 25.0
     }
     
     func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
+        case TableSections.Title.hashValue:
+            return textFieldsArray.count
         case TableSections.Options.hashValue:
-            return settingsArray.count
+            return slidersArray.count
         case TableSections.Capabilities.hashValue:
-            return capabilityArray.count
+            return capabilitiesArray.count
         default:
             return 0
         }
@@ -114,6 +146,8 @@ class GameSetupViewController: UIViewController, UITableViewDataSource, UITableV
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
         var cell: UITableViewCell? = nil
         switch indexPath.section {
+        case TableSections.Title.hashValue:
+            cell = configureTitleCell(indexPath)
         case TableSections.Options.hashValue:
             cell = configureOptionsCell(indexPath)
         case TableSections.Capabilities.hashValue:
@@ -125,16 +159,26 @@ class GameSetupViewController: UIViewController, UITableViewDataSource, UITableV
         return cell!
     }
     
-    func configureOptionsCell(indexPath: NSIndexPath) -> SettingsTableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier("gameSetupCell", forIndexPath: indexPath) as? SettingsTableViewCell
-        cell?.settingLabel.text = settingsArray[indexPath.row]["title"]
-        cell?.settingTextField.placeholder = settingsArray[indexPath.row]["placeholder"]
+    func configureTitleCell(indexPath: NSIndexPath) -> SettingsTableViewCell {
+        let cell = tableView.dequeueReusableCellWithIdentifier("TextFieldCell", forIndexPath: indexPath) as? SettingsTableViewCell
+        cell?.settingLabel.text = textFieldsArray[indexPath.row]["title"]
+        cell?.settingTextField.placeholder = textFieldsArray[indexPath.row]["placeholder"]
+        return cell!
+    }
+    
+    func configureOptionsCell(indexPath: NSIndexPath) -> SliderTableViewCell {
+        let cell = tableView.dequeueReusableCellWithIdentifier("SliderCell", forIndexPath: indexPath) as? SliderTableViewCell
+        cell?.titleLabel.text = slidersArray[indexPath.row]["title"] as? String
+        cell?.valueLabel.text = slidersArray[indexPath.row]["placeholder"] as? String
+        cell?.valueSlider.maximumValue = slidersArray[indexPath.row]["placeholder"] as! Float
+        cell?.valueSlider.minimumValue = 2
+        cell?.valueSlider.value = slidersArray[indexPath.row]["placeholder"] as! Float
         return cell!
     }
     
     func configureCapabilitiesCell(indexPath: NSIndexPath) -> CapabilitiesTableViewCell {
         let cell = tableView.dequeueReusableCellWithIdentifier("CapabilitiesCell", forIndexPath: indexPath) as? CapabilitiesTableViewCell
-        cell?.capabilityLabel.text = capabilityArray[indexPath.row]
+        cell?.capabilityLabel.text = capabilitiesArray[indexPath.row]["name"]
         return cell!
     }
     
@@ -148,6 +192,16 @@ class GameSetupViewController: UIViewController, UITableViewDataSource, UITableV
                 cell?.accessoryType = .None
             }
         }
+    }
+    
+    
+    // MARK: CapabilitiesDelegate
+    
+    func availableCapabilities(data: [[String : String]]) {
+        capabilitiesArray = data
+        playButton.layer.borderColor = UIColor(red: (13/255.0), green: (95/255.0), blue: (255/255.0), alpha: 1.0).CGColor
+        playButton.enabled = true
+        tableView.reloadData()
     }
 
 }
