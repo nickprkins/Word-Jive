@@ -42,6 +42,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UISplitViewControllerDele
         navBarAppearance.barTintColor = UIColor(red: (237/255.0), green: (28/255.0), blue: (36/255.0), alpha: 1.0)
         navBarAppearance.tintColor = UIColor(red: (247/255.0), green: (148/255.0), blue: (30/255.0), alpha: 1.0)
         navBarAppearance.titleTextAttributes = [NSForegroundColorAttributeName: UIColor(red: (247/255.0), green: (148/255.0), blue: (30/255.0), alpha: 1.0), NSFontAttributeName: UIFont(name: "Pacifico", size: 24)!]
+        navBarAppearance.translucent = false
         
         BackEndRequests.delegate = self
         BackEndRequests.getCapabilities()
@@ -78,7 +79,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UISplitViewControllerDele
     func splitViewController(splitViewController: UISplitViewController, collapseSecondaryViewController secondaryViewController:UIViewController, ontoPrimaryViewController primaryViewController:UIViewController) -> Bool {
         guard let secondaryAsNavController = secondaryViewController as? UINavigationController else { return false }
         guard let topAsDetailController = secondaryAsNavController.topViewController as? DetailViewController else { return false }
-        if topAsDetailController.detailItem == nil {
+        if topAsDetailController.gameItem == nil {
             // Return true to indicate that we have handled the collapse by doing nothing; the secondary controller will be discarded.
             return true
         }
