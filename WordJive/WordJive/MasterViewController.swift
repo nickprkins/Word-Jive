@@ -20,6 +20,7 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
 //        self.navigationItem.leftBarButtonItem = self.editButtonItem()
         
 //        let addButton = UIBarButtonItem(barButtonSystemItem: .Add, target: self, action: #selector(MasterViewController.insertNewObject(_:)))
@@ -35,15 +36,18 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
         imageView.image = image
         navigationItem.titleView = imageView
         
-//        tableView.backgroundColor = UIColor.clearColor()
         tableView.tableFooterView = UIView(frame: CGRectZero)
-        navigationController?.navigationBar.barTintColor = UIColor(red: (237/255.0), green: (28/255.0), blue: (36/255.0), alpha: 1.0)
-
+        
+        tableView.backgroundColor = UIColor(patternImage: UIImage(named: "background")!)
+        
+//        tableView.backgroundColor = UIColor.clearColor()
 //        gradientLayer.frame = view.bounds
 //        let color1 = UIColor(red: (237/255.0), green: (28/255.0), blue: (36/255.0), alpha: 1.0)
 //        let color2 = UIColor(red: (247/255.0), green: (148/255.0), blue: (30/255.0), alpha: 1.0)
-//        gradientLayer.colors = [color1, color2]
-//        gradientLayer.locations = [0.0, 0.5]
+//        let color3 = UIColor(red: (237/255.0), green: (28/255.0), blue: (36/255.0), alpha: 1.0)
+//        let color4 = UIColor(red: (247/255.0), green: (148/255.0), blue: (30/255.0), alpha: 1.0)
+//        gradientLayer.colors = [color1, color2, color3, color4]
+//        gradientLayer.locations = [0.0, 0.25, 0.5, 0.75]
 ////        view.layer.addSublayer(gradientLayer)
 //        tableView.layer.addSublayer(gradientLayer)
         
@@ -65,7 +69,7 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
     override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
         if segue.identifier == "showDetail" {
             if let indexPath = self.tableView.indexPathForSelectedRow {
-            let object = self.fetchedResultsController.objectAtIndexPath(indexPath)
+                let object = self.fetchedResultsController.objectAtIndexPath(indexPath)
                 let controller = (segue.destinationViewController as! UINavigationController).topViewController as! DetailViewController
                 controller.detailItem = object
                 controller.navigationItem.leftBarButtonItem = self.splitViewController?.displayModeButtonItem()
@@ -74,8 +78,7 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
         }
         if segue.identifier == "settingsSegue" {
             let optionsVC = (segue.destinationViewController as! UINavigationController).topViewController as! GameSetupViewController
-            optionsVC.context = self.fetchedResultsController.managedObjectContext
-            optionsVC.entity = self.fetchedResultsController.fetchRequest.entity!
+            optionsVC.fetchedResultsController = self.fetchedResultsController
             optionsVC.capabilitiesArray = capabilitiesArray!
             optionsVC.navigationController?.popoverPresentationController?.backgroundColor = UIColor(red: (237/255.0), green: (28/255.0), blue: (36/255.0), alpha: 1.0)
         }
@@ -95,9 +98,23 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
         let sectionInfo = self.fetchedResultsController.sections![section]
         return sectionInfo.numberOfObjects
     }
+    
+    override func tableView(tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        let sectionInfo = self.fetchedResultsController.sections![section]
+        if let object = sectionInfo.objects?[0] as? NSManagedObject {
+            switch object.valueForKey("completed") as! Bool {
+            case false:
+                return "Active games"
+            case true:
+                return "Completed games"
+            }
+        } else {
+            return ""
+        }
+    }
 
-    override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCellWithIdentifier("Cell", forIndexPath: indexPath)
+    override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> GamesTableViewCell {
+        let cell = tableView.dequeueReusableCellWithIdentifier("GameCell", forIndexPath: indexPath) as! GamesTableViewCell
         let object = self.fetchedResultsController.objectAtIndexPath(indexPath) as! NSManagedObject
         self.configureCell(cell, withObject: object)
         return cell
@@ -124,8 +141,8 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
         }
     }
 
-    func configureCell(cell: UITableViewCell, withObject object: NSManagedObject) {
-        cell.textLabel!.text = object.valueForKey("title")!.description
+    func configureCell(cell: GamesTableViewCell, withObject object: NSManagedObject) {
+        cell.setupCell(object)
     }
 
     // MARK: - Fetched results controller
@@ -144,12 +161,13 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
         fetchRequest.fetchBatchSize = 20
         
         // Edit the sort key as appropriate.
-       let sortDescriptor = NSSortDescriptor(key: "title", ascending: false)
-             fetchRequest.sortDescriptors = [sortDescriptor]
+        let sortDescriptor1 = NSSortDescriptor(key: "completed", ascending: true)
+        let sortDescriptor2 = NSSortDescriptor(key: "title", ascending: false)
+        fetchRequest.sortDescriptors = [sortDescriptor1, sortDescriptor2]
         
         // Edit the section name key path and cache name if appropriate.
         // nil for section name key path means "no sections".
-        let aFetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: self.managedObjectContext!, sectionNameKeyPath: nil, cacheName: "Master")
+        let aFetchedResultsController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: self.managedObjectContext!, sectionNameKeyPath: "completed", cacheName: "Master")
         aFetchedResultsController.delegate = self
         _fetchedResultsController = aFetchedResultsController
         
@@ -188,7 +206,7 @@ class MasterViewController: UITableViewController, NSFetchedResultsControllerDel
             case .Delete:
                 tableView.deleteRowsAtIndexPaths([indexPath!], withRowAnimation: .Fade)
             case .Update:
-                self.configureCell(tableView.cellForRowAtIndexPath(indexPath!)!, withObject: anObject as! NSManagedObject)
+                self.configureCell((tableView.cellForRowAtIndexPath(indexPath!)! as! GamesTableViewCell), withObject: anObject as! NSManagedObject)
             case .Move:
                 tableView.moveRowAtIndexPath(indexPath!, toIndexPath: newIndexPath!)
         }

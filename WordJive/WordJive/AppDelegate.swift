@@ -8,6 +8,7 @@
 
 import UIKit
 import CoreData
+import AVFoundation
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate, UISplitViewControllerDelegate, CapabilitiesDelegate {
@@ -16,6 +17,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UISplitViewControllerDele
 
 
     func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
+//        if let audioFilePath = NSBundle.mainBundle().pathForResource("WordJive", ofType: "mp3") {
+//            let audioURL = NSURL(fileURLWithPath: audioFilePath)
+//            var audioPlayer = AVAudioPlayer()
+//            do {
+//                audioPlayer = try AVAudioPlayer(contentsOfURL: audioURL)
+//                audioPlayer.play()
+//            } catch {
+//                print("Not able to play audio")
+//            }
+//        }
+        
         // Override point for customization after application launch.
         let splitViewController = self.window!.rootViewController as! UISplitViewController
         let navigationController = splitViewController.viewControllers[splitViewController.viewControllers.count-1] as! UINavigationController
@@ -25,6 +37,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UISplitViewControllerDele
         let masterNavigationController = splitViewController.viewControllers[0] as! UINavigationController
         let controller = masterNavigationController.topViewController as! MasterViewController
         controller.managedObjectContext = self.managedObjectContext
+        
+        let navBarAppearance = UINavigationBar.appearance()
+        navBarAppearance.barTintColor = UIColor(red: (237/255.0), green: (28/255.0), blue: (36/255.0), alpha: 1.0)
+        navBarAppearance.tintColor = UIColor(red: (247/255.0), green: (148/255.0), blue: (30/255.0), alpha: 1.0)
+        navBarAppearance.titleTextAttributes = [NSForegroundColorAttributeName: UIColor(red: (247/255.0), green: (148/255.0), blue: (30/255.0), alpha: 1.0), NSFontAttributeName: UIFont(name: "Pacifico", size: 24)!]
         
         BackEndRequests.delegate = self
         BackEndRequests.getCapabilities()
